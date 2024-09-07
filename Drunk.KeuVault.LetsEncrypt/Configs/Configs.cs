@@ -11,6 +11,7 @@ public static class Configs
             .AddEnvironmentVariables()
             .Build();
 
-        return  config.GetSection(CertManagerConfig.Name).Get<CertManagerConfig>();
+        var settings =  config.GetSection(CertManagerConfig.Name).Get<CertManagerConfig>();
+        return settings;
     }
 }

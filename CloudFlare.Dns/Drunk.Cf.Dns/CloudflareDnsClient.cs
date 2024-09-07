@@ -62,7 +62,7 @@ public interface ICloudflareDnsClient
     [Post("/zones/{zoneId}/dns_records")]
     Task<DnsResponse<DnsRecordResult>> CreateAsync([AliasAs("zoneId")] string zoneId, [Body] DnsRecord record);
 
-    [Put("/zones/{zoneId}/dns_records/{dns_record_id}")]
+    [Patch("/zones/{zoneId}/dns_records/{dns_record_id}")]
     Task<DnsResponse<DnsRecordResult>> UpdateAsync([AliasAs("zoneId")] string zoneId, [AliasAs("dns_record_id")] string id,
         [Body] DnsRecord record);
 

@@ -23,7 +23,7 @@ public class CertManager(CertManagerConfig config)
 
     private static async Task<IAcmeContext> CreateAcmeContext(string email, bool useProduction)
     {
-        var fileName = $"Data/{email.Replace("@", string.Empty).Replace(".", string.Empty)}.pem";
+        var fileName = $"Data/{(useProduction?"prd":"staging")}-{email.Replace("@", string.Empty).Replace(".", string.Empty)}.pem";
 
         var accountPem = string.Empty;
         if (File.Exists(fileName))
@@ -74,7 +74,7 @@ public class CertManager(CertManagerConfig config)
         Console.WriteLine($"DNS record deleted: {recordId}");
     }
 
-    private async Task<(IChallengeContext challenge, Uri orderUri, string txtName, string txtValue)>
+    private async Task<(IChallengeContext challenge, IOrderContext order, string txtName, string txtValue)>
         CreateOrder(IAcmeContext acme, string domain)
     {
         var order = await acme.NewOrder([domain]);
@@ -86,38 +86,34 @@ public class CertManager(CertManagerConfig config)
         var txtValue = acme.AccountKey.DnsTxt(dnsChallenge.Token);
 
         Console.WriteLine($"Order created: {domain}");
-        return (dnsChallenge, order.Location, txtName, txtValue);
+        return (dnsChallenge, order, txtName, txtValue);
     }
 
-    private async Task ChallengeAndWait(IChallengeContext challengeContext, CancellationToken token = default)
-    {
-        Challenge rs;
-        do
-        {
-            await Task.Delay(10000, token);
-            rs = await challengeContext.Validate();
-            if (token.IsCancellationRequested) break;
-        } while (rs.Status == ChallengeStatus.Pending);
-
-        Console.WriteLine($"Challenge is completed {challengeContext.Type}");
-    }
-
-    private async Task<byte[]> IssueCert(IAcmeContext acme, Uri orderUri, string domain,
+    private async Task<byte[]> IssueCert(IAcmeContext acme, IOrderContext order, string domain,
         CancellationToken token = default)
     {
-        //var privateKey = KeyFactory.NewKey(KeyAlgorithm.RS256);
-        var csr = new CertificationRequestBuilder();
-        csr.AddName(
-            $"C={config.CertInfo.CountryName}, ST={config.CertInfo.State}, L={config.CertInfo.Locality}, O={config.CertInfo.Organization}, CN={domain}");
-        csr.SubjectAlternativeNames.Add(domain);
+        var privateKey = KeyFactory.NewKey(KeyAlgorithm.RS256);
+        await order.Finalize(
+            new CsrInfo
+            {
+                CountryName = config.CertInfo.CountryName,
+                State = config.CertInfo.State,
+                Locality = config.CertInfo.Locality,
+                Organization = config.CertInfo.Organization,
+                CommonName = domain,
+            }, privateKey);
 
-        var order = acme.Order(orderUri);
-        await order.Finalize(csr.Generate());
-        var cert = await order.Download();
-        //var certPem = cert.ToPem();
-        //var privateKeyPem = csr.Key.ToPem();
-        var pfxBuilder = cert.ToPfx(csr.Key);
-        var pfx = pfxBuilder.Build(domain.Replace(".", "-"), config.CfToken);
+        var certChain = await order.TryDownload( cancellationToken: token);
+        var pfxBuilder = certChain.ToPfx(privateKey);
+
+        // if (!config.ProductionEnabled)
+        // {
+        //     var issuer = await File.ReadAllTextAsync("Data/Staging Root X1.pem", token);
+        //     pfxBuilder.AddIssuer(Convert.FromBase64String(issuer.Replace("\r\n", "").Replace(" ", "")));
+        // }
+
+        var pfx = pfxBuilder.Build(GetCartName(domain), config.CfToken);
+
         Console.WriteLine($"Cert is issued: {domain}");
         return pfx;
     }
@@ -132,10 +128,10 @@ public class CertManager(CertManagerConfig config)
         {
             Enabled = true,
             Password = config.CfToken,
-            Tags = { ["issuer"] = "LetsEncrypt", ["expireAt"] = DateTime.Now.AddMonths(3).ToString("O") }
+            Tags = { ["issuer"] = "LetsEncrypt", ["expireAt"] = DateTime.Now.AddMonths(3).AddDays(-1).ToString("O") }
         }, token);
 
-        Console.WriteLine($"Cert {domain} is added to Key Vault: ${_certClient.VaultUri} ");
+        Console.WriteLine($"Cert {domain} is added to Key Vault: {_certClient.VaultUri} ");
     }
 
     private async Task CreateCertOrder(CancellationToken token = default)
@@ -149,8 +145,8 @@ public class CertManager(CertManagerConfig config)
             {
                 var info = await CreateOrder(acme, domain);
                 record = await CreateDnsRecord(info.txtName, info.txtValue, token);
-                await ChallengeAndWait(info.challenge, token);
-                var certs = await IssueCert(acme, info.orderUri, domain, token);
+                await info.challenge.TryChallenge(token);
+                var certs = await IssueCert(acme, info.order, domain, token);
                 await AddCertToVault(domain, certs, token);
             }
             finally
