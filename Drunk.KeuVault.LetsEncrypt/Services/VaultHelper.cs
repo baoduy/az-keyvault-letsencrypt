@@ -1,4 +1,3 @@
-using Azure;
 using Azure.Identity;
 using Azure.Security.KeyVault.Certificates;
 using Drunk.KeuVault.LetsEncrypt.Configs;

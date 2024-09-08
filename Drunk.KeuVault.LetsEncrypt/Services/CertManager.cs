@@ -1,8 +1,5 @@
-using Azure.Identity;
-using Azure.Security.KeyVault.Certificates;
 using Certes;
 using Certes.Acme;
-using Drunk.Cf.Dns;
 using Drunk.KeuVault.LetsEncrypt.Configs;
 using Directory = System.IO.Directory;
 
@@ -93,24 +90,15 @@ public class CertManager(CfDnsHelper cfDnsHelper, VaultHelper vaultHelper, CertM
 
         foreach (var domain in config.Domains)
         {
-            DnsRecordResult? record = null;
-            try
-            {
-                var currentCert = await vaultHelper.GetCurrentCertExpiration(domain, token);
-                if (currentCert is not null && currentCert.Value > DateTimeOffset.UtcNow.AddDays(15))
-                    continue;
+            var currentCert = await vaultHelper.GetCurrentCertExpiration(domain, token);
+            if (currentCert is not null && currentCert.Value > DateTimeOffset.UtcNow.AddDays(15))
+                continue;
 
-                var info = await CreateOrder(acme, domain);
-                record = await cfDnsHelper.UpsertRecord(config.ZoneId, info.txtName, info.txtValue);
-                await info.challenge.TryChallenge(token);
-                var certs = await IssueCert(acme, info.order, domain, token);
-                await vaultHelper.AddCert(domain, certs, token);
-            }
-            finally
-            {
-                // if (record is not null)
-                //     await DeleteDnsRecord(record.Id, token);
-            }
+            var info = await CreateOrder(acme, domain);
+            var record = await cfDnsHelper.UpsertRecord(config.ZoneId, info.txtName, info.txtValue);
+            await info.challenge.TryChallenge(token);
+            var certs = await IssueCert(acme, info.order, domain, token);
+            await vaultHelper.AddCert(domain, certs, token);
         }
     }
 
