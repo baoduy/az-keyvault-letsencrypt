@@ -54,8 +54,8 @@ To run the project using the Docker image:
    ```
 
 2. Here is a sample to run docker with environment variables according to the `appsettings.json`:
-   ```yaml
-   services:
+```yaml
+services:
   app:
     image: baoduy2412/keyvault-letsencrypt:latest
     environment:
@@ -85,7 +85,7 @@ To run the project using the Docker image:
       CertManager__Zones__1__LetsEncryptEmail: "admin@anotherdomain.com"
       CertManager__Zones__1__Domains__0: api.anotherdomain.com
       CertManager__Zones__1__Domains__0: "*.anotherdomain.com"
-   ```
+```
 
 ## Setup and Installation (Local Development)
 
