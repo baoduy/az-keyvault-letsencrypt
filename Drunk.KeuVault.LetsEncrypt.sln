@@ -2,8 +2,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Drunk.KeuVault.LetsEncrypt", "Drunk.KeuVault.LetsEncrypt\Drunk.KeuVault.LetsEncrypt.csproj", "{65A12650-8A0C-4FEF-9BC4-6D2AAE7846F1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Drunk.Cf.Dns", "CloudFlare.Dns\Drunk.Cf.Dns\Drunk.Cf.Dns.csproj", "{4BB4BF0A-C788-416C-9AF4-8167BEBA4598}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -14,9 +12,5 @@ Global
 		{65A12650-8A0C-4FEF-9BC4-6D2AAE7846F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{65A12650-8A0C-4FEF-9BC4-6D2AAE7846F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{65A12650-8A0C-4FEF-9BC4-6D2AAE7846F1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{4BB4BF0A-C788-416C-9AF4-8167BEBA4598}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4BB4BF0A-C788-416C-9AF4-8167BEBA4598}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4BB4BF0A-C788-416C-9AF4-8167BEBA4598}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4BB4BF0A-C788-416C-9AF4-8167BEBA4598}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

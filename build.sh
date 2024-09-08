@@ -1,0 +1,1 @@
+docker build -t drunk/keyvault-letsencrypt:latest -f Dockerfile ./Drunk.KeuVault.LetsEncrypt
