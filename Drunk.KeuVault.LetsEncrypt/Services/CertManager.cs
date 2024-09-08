@@ -2,28 +2,18 @@ using Azure.Identity;
 using Azure.Security.KeyVault.Certificates;
 using Certes;
 using Certes.Acme;
-using Certes.Acme.Resource;
-using Certes.Pkcs;
 using Drunk.Cf.Dns;
 using Drunk.KeuVault.LetsEncrypt.Configs;
 using Directory = System.IO.Directory;
 
 namespace Drunk.KeuVault.LetsEncrypt.Services;
 
-public class CertManager(CertManagerConfig config)
+public class CertManager(CfDnsHelper cfDnsHelper, VaultHelper vaultHelper, CertManagerConfig config)
 {
-    private readonly CertificateClient _certClient = new(new Uri(config.KeyVaultUrl), new DefaultAzureCredential(
-        string.IsNullOrWhiteSpace(config.KeyVaultUID)
-            ? null
-            : new DefaultAzureCredentialOptions
-            {
-                ManagedIdentityClientId = config.KeyVaultUID
-            })
-    );
-
     private static async Task<IAcmeContext> CreateAcmeContext(string email, bool useProduction)
     {
-        var fileName = $"Data/{(useProduction?"prd":"staging")}-{email.Replace("@", string.Empty).Replace(".", string.Empty)}.pem";
+        var fileName =
+            $"Data/{(useProduction ? "prd" : "staging")}-{email.Replace("@", string.Empty).Replace(".", string.Empty)}.pem";
 
         var accountPem = string.Empty;
         if (File.Exists(fileName))
@@ -50,28 +40,6 @@ public class CertManager(CertManagerConfig config)
         await File.WriteAllTextAsync(fileName, pemKey);
 
         return acme;
-    }
-
-    private readonly ICloudflareDnsClient _cloudflareClient = CfDnsConfigs.Create(config.CfEmail, config.CfToken);
-
-    private async Task<DnsRecordResult?> CreateDnsRecord(string recordName, string recordValue,
-        CancellationToken token = default)
-    {
-        var record = new DnsRecord { Name = recordName, Content = recordValue, Type = RecordType.TXT, Ttl = 120 };
-        var found = (await _cloudflareClient.FindByNameAsync(config.ZoneId, recordName)).Result.FirstOrDefault();
-
-        found = (found is not null)
-            ? (await _cloudflareClient.UpdateAsync(config.ZoneId, found.Id, record)).Result
-            : (await _cloudflareClient.CreateAsync(config.ZoneId, record)).Result;
-
-        Console.WriteLine($"DNS record created: {recordName}");
-        return found;
-    }
-
-    private async Task DeleteDnsRecord(string recordId, CancellationToken token = default)
-    {
-        await _cloudflareClient.DeleteAsync(config.ZoneId, recordId);
-        Console.WriteLine($"DNS record deleted: {recordId}");
     }
 
     private async Task<(IChallengeContext challenge, IOrderContext order, string txtName, string txtValue)>
@@ -103,7 +71,7 @@ public class CertManager(CertManagerConfig config)
                 CommonName = domain,
             }, privateKey);
 
-        var certChain = await order.TryDownload( cancellationToken: token);
+        var certChain = await order.TryDownload(cancellationToken: token);
         var pfxBuilder = certChain.ToPfx(privateKey);
 
         // if (!config.ProductionEnabled)
@@ -112,27 +80,12 @@ public class CertManager(CertManagerConfig config)
         //     pfxBuilder.AddIssuer(Convert.FromBase64String(issuer.Replace("\r\n", "").Replace(" ", "")));
         // }
 
-        var pfx = pfxBuilder.Build(GetCartName(domain), config.CfToken);
+        var pfx = pfxBuilder.Build(vaultHelper.GetCertName(domain), config.CfToken);
 
         Console.WriteLine($"Cert is issued: {domain}");
         return pfx;
     }
 
-    private string GetCartName(string domain) => $"{domain.Replace(".", "-")}-lets";
-
-    private async Task AddCertToVault(string domain, byte[] certBytes, CancellationToken token = default)
-    {
-        await _certClient.ImportCertificateAsync(new ImportCertificateOptions(
-            GetCartName(domain),
-            certBytes)
-        {
-            Enabled = true,
-            Password = config.CfToken,
-            Tags = { ["issuer"] = "LetsEncrypt", ["expireAt"] = DateTime.Now.AddMonths(3).AddDays(-1).ToString("O") }
-        }, token);
-
-        Console.WriteLine($"Cert {domain} is added to Key Vault: {_certClient.VaultUri} ");
-    }
 
     private async Task CreateCertOrder(CancellationToken token = default)
     {
@@ -143,11 +96,15 @@ public class CertManager(CertManagerConfig config)
             DnsRecordResult? record = null;
             try
             {
+                var currentCert = await vaultHelper.GetCurrentCertExpiration(domain, token);
+                if (currentCert is not null && currentCert.Value > DateTimeOffset.UtcNow.AddDays(15))
+                    continue;
+
                 var info = await CreateOrder(acme, domain);
-                record = await CreateDnsRecord(info.txtName, info.txtValue, token);
+                record = await cfDnsHelper.UpsertRecord(config.ZoneId, info.txtName, info.txtValue);
                 await info.challenge.TryChallenge(token);
                 var certs = await IssueCert(acme, info.order, domain, token);
-                await AddCertToVault(domain, certs, token);
+                await vaultHelper.AddCert(domain, certs, token);
             }
             finally
             {

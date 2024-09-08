@@ -2,7 +2,8 @@
 
 using Drunk.KeuVault.LetsEncrypt.Configs;
 using Drunk.KeuVault.LetsEncrypt.Services;
+using Microsoft.Extensions.DependencyInjection;
 
-var config = Configs.GetService();
-var manager = new CertManager(config ?? throw new ArgumentNullException(nameof(config)));
+await using var services = Configs.GetServices();
+var manager = services.GetRequiredService<CertManager>();
 await manager.RunAsync();
