@@ -17,9 +17,9 @@ public static class Extensions
             {
                 return await orderContext.Download(preferredChain);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                await Task.Delay(2000, cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
             }
             finally
             {
@@ -36,9 +36,13 @@ public static class Extensions
         Challenge rs;
         do
         {
+            await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
+
             rs = await challengeContext.Validate();
             if (cancellationToken.IsCancellationRequested) break;
-            await Task.Delay(10000, cancellationToken);
+
+            await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
+
         } while (rs.Status == ChallengeStatus.Pending);
 
         Console.WriteLine($"Challenge is completed: {challengeContext.Type}");

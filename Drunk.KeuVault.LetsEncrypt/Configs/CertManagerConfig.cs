@@ -10,9 +10,18 @@ public class CertInfoConfig
 
     [Required(AllowEmptyStrings = false)] public string Locality { get; init; } = string.Empty;
 
-    [Required(AllowEmptyStrings = false)] public string Organization { get;  init;} = string.Empty;
+    [Required(AllowEmptyStrings = false)] public string Organization { get; init; } = string.Empty;
 
-    [Required(AllowEmptyStrings = false)] public string OrganizationUnit { get;  init; } = string.Empty;
+    [Required(AllowEmptyStrings = false)] public string OrganizationUnit { get; init; } = string.Empty;
+}
+
+public class CfZone
+{
+    [Required(AllowEmptyStrings = false)] public string ZoneId { get; init; } = string.Empty;
+
+    [Required(AllowEmptyStrings = false)] public string LetsEncryptEmail { get; init; } = string.Empty;
+
+    [Required(AllowEmptyStrings = false)] public string[] Domains { get; init; } = Enumerable.Empty<string>().ToArray();
 }
 
 public class CertManagerConfig
@@ -21,15 +30,11 @@ public class CertManagerConfig
 
     public bool ProductionEnabled { get; set; } = false;
 
-    [Required(AllowEmptyStrings = false)] public string CfEmail { get;  init; } = string.Empty;
+    [Required(AllowEmptyStrings = false)] public string CfEmail { get; init; } = string.Empty;
 
     [Required(AllowEmptyStrings = false)] public string CfToken { get; init; } = string.Empty;
 
-    [Required(AllowEmptyStrings = false)] public string ZoneId { get; init; } = string.Empty;
-
-    [Required(AllowEmptyStrings = false)] public string LetsEncryptEmail { get; init; } = string.Empty;
-
-    [Required(AllowEmptyStrings = false)] public string[] Domains { get; init; } = Enumerable.Empty<string>().ToArray();
+    public List<CfZone> Zones { get; init; } = new();
 
     public CertInfoConfig CertInfo { get; init; } = default!;
 

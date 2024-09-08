@@ -84,23 +84,30 @@ public class CertManager(CfDnsHelper cfDnsHelper, VaultHelper vaultHelper, CertM
     }
 
 
-    private async Task CreateCertOrder(CancellationToken token = default)
+    private async Task CreateCertOrder(CfZone zone, CancellationToken token = default)
     {
-        var acme = await CreateAcmeContext(config.LetsEncryptEmail, config.ProductionEnabled);
+        var acme = await CreateAcmeContext(zone.LetsEncryptEmail, config.ProductionEnabled);
 
-        foreach (var domain in config.Domains)
+        foreach (var domain in zone.Domains)
         {
             var currentCert = await vaultHelper.GetCurrentCertExpiration(domain, token);
             if (currentCert is not null && currentCert.Value > DateTimeOffset.UtcNow.AddDays(15))
+            {
+                Console.WriteLine($"A current cert is still valid for {domain}");
                 continue;
+            }
 
             var info = await CreateOrder(acme, domain);
-            var record = await cfDnsHelper.UpsertRecord(config.ZoneId, info.txtName, info.txtValue);
+            var record = await cfDnsHelper.UpsertRecord(zone.ZoneId, info.txtName, info.txtValue);
             await info.challenge.TryChallenge(token);
             var certs = await IssueCert(acme, info.order, domain, token);
             await vaultHelper.AddCert(domain, certs, token);
         }
     }
 
-    public Task RunAsync(CancellationToken token = default) => CreateCertOrder(token);
+    public async Task RunAsync(CancellationToken token = default)
+    {
+        foreach (var zone in config.Zones)
+            await CreateCertOrder(zone, token);
+    }
 }
