@@ -5,8 +5,17 @@ using Directory = System.IO.Directory;
 
 namespace Drunk.KeuVault.LetsEncrypt.Services;
 
+/// <summary>
+/// Manages the creation and renewal of SSL certificates using Let's Encrypt.
+/// </summary>
 public class CertManager(CfDnsHelper cfDnsHelper, VaultHelper vaultHelper, CertManagerConfig config)
 {
+    /// <summary>
+    /// Creates an ACME context for Let's Encrypt.
+    /// </summary>
+    /// <param name="email">The email address for the ACME account.</param>
+    /// <param name="useProduction">Indicates whether to use the production environment.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the ACME context.</returns>
     private static async Task<IAcmeContext> CreateAcmeContext(string email, bool useProduction)
     {
         var fileName =
@@ -39,10 +48,16 @@ public class CertManager(CfDnsHelper cfDnsHelper, VaultHelper vaultHelper, CertM
         return acme;
     }
 
+    /// <summary>
+    /// Creates a new order for a domain.
+    /// </summary>
+    /// <param name="acme">The ACME context.</param>
+    /// <param name="domain">The domain name.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the challenge context, order context, TXT record name, and TXT record value.</returns>
     private async Task<(IChallengeContext challenge, IOrderContext order, string txtName, string txtValue)>
         CreateOrder(IAcmeContext acme, string domain)
     {
-        var order = await acme.NewOrder([domain]);
+        var order = await acme.NewOrder(new[] { domain });
 
         // Handle the DNS-01 challenge
         var authz = (await order.Authorizations()).First();
@@ -54,6 +69,14 @@ public class CertManager(CfDnsHelper cfDnsHelper, VaultHelper vaultHelper, CertM
         return (dnsChallenge, order, txtName, txtValue);
     }
 
+    /// <summary>
+    /// Issues a certificate for a domain.
+    /// </summary>
+    /// <param name="acme">The ACME context.</param>
+    /// <param name="order">The order context.</param>
+    /// <param name="domain">The domain name.</param>
+    /// <param name="token">The cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the certificate bytes.</returns>
     private async Task<byte[]> IssueCert(IAcmeContext acme, IOrderContext order, string domain,
         CancellationToken token = default)
     {
@@ -83,7 +106,12 @@ public class CertManager(CfDnsHelper cfDnsHelper, VaultHelper vaultHelper, CertM
         return pfx;
     }
 
-
+    /// <summary>
+    /// Creates a certificate order for a Cloudflare zone.
+    /// </summary>
+    /// <param name="zone">The Cloudflare zone.</param>
+    /// <param name="token">The cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task CreateCertOrder(CfZone zone, CancellationToken token = default)
     {
         var acme = await CreateAcmeContext(zone.LetsEncryptEmail, config.ProductionEnabled);
@@ -105,6 +133,11 @@ public class CertManager(CfDnsHelper cfDnsHelper, VaultHelper vaultHelper, CertM
         }
     }
 
+    /// <summary>
+    /// Runs the certificate manager to create or renew certificates for all configured zones.
+    /// </summary>
+    /// <param name="token">The cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
     public async Task RunAsync(CancellationToken token = default)
     {
         foreach (var zone in config.Zones)
