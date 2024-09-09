@@ -22,7 +22,7 @@ ARG BUILD_CONFIGURATION=Release
 
 RUN dotnet publish "Drunk.KeuVault.LetsEncrypt.csproj" -c $BUILD_CONFIGURATION \
     -o /app/publish /p:UseAppHost=true -a $TARGETARCH \
-    --self-contained true /p:PublishTrimmed=true /p:PublishSingleFile=true
+    --self-contained true /p:PublishTrimmed=false /p:PublishSingleFile=false
 
 FROM --platform=$BUILDPLATFORM base AS final
 WORKDIR /app
