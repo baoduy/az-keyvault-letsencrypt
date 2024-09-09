@@ -62,7 +62,7 @@ public class CertManager(CfDnsHelper cfDnsHelper, VaultHelper vaultHelper, CertM
         // Handle the DNS-01 challenge
         var authz = (await order.Authorizations()).First();
         var dnsChallenge = await authz.Dns();
-        var txtName = $"_acme-challenge.{domain}";
+        var txtName = $"_acme-challenge.{domain.Replace("*.", string.Empty)}";
         var txtValue = acme.AccountKey.DnsTxt(dnsChallenge.Token);
 
         Console.WriteLine($"Order created: {domain}");
